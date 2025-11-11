@@ -249,7 +249,7 @@
 
         // === SOCKET.IO - MESSAGERIE EN TEMPS RÉEL ===
         function initSocket() {
-            socket = io('http://localhost:3000'); // Changez pour votre serveur
+            const socket = io('https://helpnet-chat-server.onrender.com'); // Changez pour votre serveur
 
             socket.on('connect', () => {
                 console.log('Connecté au serveur de chat');
@@ -310,4 +310,5 @@
         }
     </script>
 </body>
+
 </html>
