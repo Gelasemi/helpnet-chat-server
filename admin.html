@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - HELPNET +Madagascar</title>
+    <meta name="theme-color" content="#e74c3c" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <style>
+        :root {
+            --red: #e74c3c; --red-dark: #c0392b; --red-light: #fadbd8;
+            --white: #ffffff; --gray: #f8f9fa; --dark: #2c3e50;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1); --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--white); color: var(--dark); min-height: 100vh; }
+        header { background: var(--red); color: white; padding: 1rem; text-align: center; font-size: 1.5rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+        .header-content { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logout { background: #c0392b; color: white; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; font-size: 0.9rem; }
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: var(--white); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+        .card h2 { color: var(--red); margin-bottom: 1rem; font-size: 1.3rem; }
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: var(--transition); margin-right: 0.5rem; }
+        .btn-primary { background: var(--red); color: white; }
+        .btn-primary:hover { background: var(--red-dark); }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        .form-group input[type="file"] { padding: 0.5rem; }
+        .preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; margin-top: 0.5rem; display: none; }
+        .preview.video { background: #000; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--red-light); color: var(--red); font-weight: 600; }
+        .status-active { color: #27ae60; font-weight: 600; }
+        .status-pending { color: #e67e22; font-weight: 600; }
+        .status-expired { color: #95a5a6; font-weight: 600; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--red); color: white; padding: 1.5rem; border-radius: var(--radius); text-align: center; }
+        .stat-card h3 { font-size: 2rem; margin: 0; }
+        .invoice-preview { background: #f9f9f9; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none; font-size: 0.9rem; }
+        .footer { text-align: center; margin-top: 3rem; color: #777; font-size: 0.85rem; }
+        .qr-code { width: 150px; height: 150px; margin: 1rem auto; display: block; }
+        .error { color: #e74c3c; font-size: 0.9rem; margin-top: 0.3rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <span>Dashboard Admin - Publicités (10 sec max)</span>
+            <a href="#" onclick="logout()" class="logout">Déconnexion</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3 id="totalAds">0</h3>
+                <p>Pubs actives</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalRevenue">0</h3>
+                <p>Revenus (Ar)</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="pendingAds">0</h3>
+                <p>En attente</p>
+            </div>
+        </div>
+
+        <!-- Ajouter Pub -->
+        <div class="card">
+            <h2>Ajouter Publicité (Image ou Vidéo 10 sec max)</h2>
+            <form id="addAdForm">
+                <div class="form-group">
+                    <label>Annonceur *</label>
+                    <input type="text" id="adName" required />
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="adEmail" required />
+                </div>
+                <div class="form-group">
+                    <label>Média * (MP4 ≤10s, JPG/PNG)</label>
+                    <input type="file" id="adFile" accept="image/*,video/mp4" required />
+                    <p class="error" id="fileError"></p>
+                    <img id="previewImg" class="preview" alt="Aperçu" />
+                    <video id="previewVideo" class="preview video" controls muted loop></video>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    Ajouter & Envoyer Facture (50 000 Ar)
+                </button>
+            </form>
+        </div>
+
+        <!-- Aperçu Facture -->
+        <div class="card invoice-preview" id="invoicePreview">
+            <h4>Aperçu Facture</h4>
+            <div id="invoiceContent"></div>
+        </div>
+
+        <!-- Liste Pubs -->
+        <div class="card">
+            <h2>Liste des Publicités</h2>
+            <table id="adsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Annonceur</th>
+                        <th>Média</th>
+                        <th>Vues</th>
+                        <th>Jours</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- QR APK -->
+        <div class="card" style="text-align:center;">
+            <h2>APK Android</h2>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://helpnet-madagascar.netlify.app/helpnet.apk" class="qr-code" />
+            <p><a href="https://helpnet-madagascar.netlify.app/helpnet.apk">Télécharger APK</a></p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 HELPNET +Madagascar | Créateur : Prince MANANTENASOA</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script>
+        const ADMIN_EMAIL = "admin@helpnet.mg";
+        const ADMIN_PASS = "helpnet2025";
+        const PRICE = 50000;
+        const MAX_DURATION = 10; // secondes
+        const MAX_SIZE = 5 * 1024 * 1024; // 5 Mo
+
+        // === CONNEXION ===
+        if (!localStorage.getItem('adminLogged')) {
+            const email = prompt("Email Admin:");
+            const pass = prompt("Mot de passe:");
+            if (email !== ADMIN_EMAIL || pass !== ADMIN_PASS) {
+                alert("Accès refusé !");
+                window.location.href = "index.html";
+            } else {
+                localStorage.setItem('adminLogged', 'true');
+            }
+        }
+
+        let ads = JSON.parse(localStorage.getItem('helpnet_ads')) || [];
+
+        // === VALIDATION FICHIER ===
+        document.getElementById('adFile').addEventListener('change', function() {
+            const file = this.files[0];
+            const errorEl = document.getElementById('fileError');
+            const img = document.getElementById('previewImg');
+            const video = document.getElementById('previewVideo');
+            img.style.display = 'none';
+            video.style.display = 'none';
+            errorEl.textContent = '';
+
+            if (!file) return;
+
+            if (file.size > MAX_SIZE) {
+                errorEl.textContent = "Fichier trop lourd (max 5 Mo)";
+                this.value = '';
+                return;
+            }
+
+            if (file.type.startsWith('video')) {
+                const url = URL.createObjectURL(file);
+                const tempVideo = document.createElement('video');
+                tempVideo.src = url;
+                tempVideo.onloadedmetadata = () => {
+                    if (tempVideo.duration > MAX_DURATION) {
+                        errorEl.textContent = `Vidéo trop longue (max ${MAX_DURATION} sec)`;
+                        this.value = '';
+                    } else {
+                        video.src = url;
+                        video.style.display = 'block';
+                    }
+                };
+            } else if (file.type.startsWith('image')) {
+                const url = URL.createObjectURL(file);
+                img.src = url;
+                img.style.display = 'block';
+            } else {
+                errorEl.textContent = "Format non supporté (JPG/PNG/MP4 uniquement)";
+                this.value = '';
+            }
+        });
+
+        // === AJOUT PUB ===
+        document.getElementById('addAdForm').onsubmit = function(e) {
+            e.preventDefault();
+            const name = document.getElementById('adName').value.trim();
+            const email = document.getElementById('adEmail').value.trim();
+            const fileInput = document.getElementById('adFile');
+            const file = fileInput.files[0];
+
+            if (!file || !name || !email) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const newAd = {
+                    id: Date.now().toString().slice(-6),
+                    name, email,
+                    file: e.target.result,
+                    type: file.type.startsWith('video') ? 'video' : 'image',
+                    views: 0,
+                    daysLeft: 5,
+                    status: 'active',
+                    created: new Date().toLocaleDateString('fr-FR')
+                };
+                ads.push(newAd);
+                saveAds();
+                generateInvoice(newAd);
+                sendInvoice(ads.length - 1);
+                this.reset();
+                document.getElementById('previewImg').style.display = 'none';
+                document.getElementById('previewVideo').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // === SAUVEGARDE & RENDER ===
+        function saveAds() {
+            localStorage.setItem('helpnet_ads', JSON.stringify(ads));
+            updateStats();
+            renderTable();
+        }
+
+        function updateStats() {
+            const active = ads.filter(a => a.status === 'active').length;
+            document.getElementById('totalAds').textContent = active;
+            document.getElementById('totalRevenue').textContent = (active * PRICE).toLocaleString();
+            document.getElementById('pendingAds').textContent = ads.filter(a => a.status === 'pending').length;
+        }
+
+        function renderTable() {
+            const tbody = document.querySelector('#adsTable tbody');
+            tbody.innerHTML = '';
+            ads.forEach((ad, i) => {
+                const media = ad.type === 'video'
+                    ? `<video src="${ad.file}" style="width:60px;height:40px;object-fit:cover;border-radius:4px;" muted></video>`
+                    : `<img src="${ad.file}" style="width:60px;height:40px;object-fit:cover;border-radius:4px;" />`;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>#${ad.id}</td>
+                    <td>${ad.name}</td>
+                    <td>${media}</td>
+                    <td>${ad.views}/5</td>
+                    <td>${ad.daysLeft}</td>
+                    <td><span class="status-${ad.status}">${ad.status === 'active' ? 'Actif' : 'Expiré'}</span></td>
+                    <td>
+                        <button class="btn btn-success btn-sm" onclick="sendInvoice(${i})">Facture</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteAd(${i})">Supprimer</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // === FACTURE & EMAIL ===
+        function generateInvoice(ad) {
+            const content = `
+                <div style="font-family:Arial;background:#f9f9f9;padding:20px;border-radius:8px;">
+                    <h2 style="color:#e74c3c;text-align:center;">Facture HELPNET</h2>
+                    <p style="text-align:center;">Publicité Premium - 10 sec max</p>
+                    <table style="width:100%;margin:20px 0;">
+                        <tr><td><strong>Date</strong></td><td>${new Date().toLocaleDateString('fr-FR')}</td></tr>
+                        <tr><td><strong>Annonceur</strong></td><td>${ad.name}</td></tr>
+                        <tr><td><strong>Média</strong></td><td>${ad.type === 'video' ? 'Vidéo 10 sec' : 'Image'}</td></tr>
+                        <tr><td><strong>Montant</strong></td><td><strong>50 000 Ar</strong></td></tr>
+                    </table>
+                    <div style="background:#f0f0f0;padding:15px;border-radius:6px;">
+                        <p><strong>MVola / Orange Money :</strong> 034 00 000 00<br>
+                        <strong>Référence :</strong> HELPNET-${ad.id}</p>
+                    </div>
+                </div>
+            `;
+            const preview = document.getElementById('invoicePreview');
+            document.getElementById('invoiceContent').innerHTML = content;
+            preview.style.display = 'block';
+        }
+
+        function sendInvoice(i) {
+            const ad = ads[i];
+            console.log("FACTURE ENVOYÉE À", ad.email);
+            Toastify({ text: `Facture envoyée à ${ad.email}`, backgroundColor: "#27ae60" }).showToast();
+        }
+
+        function deleteAd(i) {
+            if (confirm("Supprimer ?")) {
+                ads.splice(i, 1);
+                saveAds();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('adminLogged');
+            window.location.href = "index.html";
+        }
+
+        // INIT
+        updateStats();
+        renderTable();
+    </script>
+</body>
+</html>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('SW enregistré:', reg.scope))
+      .catch(err => console.error('SW erreur:', err));
+  });
+}
+</script>

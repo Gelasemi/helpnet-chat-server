@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HELPNET +Madagascar</title>
+    <meta name="description" content="Plateforme d'entraide humanitaire, dons, services, marketplace et soutien moral." />
+    <meta name="theme-color" content="#e74c3c" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>[Heart]</text></svg>">
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <!-- Socket.IO CDN -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --red: #e74c3c; --red-dark: #c0392b; --red-light: #fadbd8;
+            --white: #ffffff; --gray: #f8f9fa; --dark: #2c3e50;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1); --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--white); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; }
+        body.dark-mode { --white: #1a1a1a; --gray: #2d2d2d; background: #111; color: #eee; }
+        header { background: var(--red); color: white; padding: 1rem; position: sticky; top: 0; z-index: 1000; box-shadow: var(--shadow); }
+        .header-container { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .logo { font-size: 1.8rem; font-weight: bold; display: flex; flex-direction: column; gap: 0.25rem; }
+        .logo i { font-size: 1.5rem; }
+        .logo .mg { font-size: 0.9rem; background: white; color: var(--red); padding: 0.2rem 0.5rem; border-radius: 6px; }
+        .logo .genz { font-size: 0.75rem; background: white; color: var(--red); padding: 0.15rem 0.4rem; border-radius: 5px; margin-left: 2.1rem; }
+        .search-bar { flex: 1; max-width: 500px; position: relative; }
+        .search-bar input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border: none; border-radius: 25px; font-size: 1rem; }
+        .search-bar .z-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--dark); font-weight: bold; }
+        .search-bar .search-icon { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #999; cursor: pointer; }
+        .search-bar .search-icon:hover { color: var(--red); }
+        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+        .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; position: relative; }
+        .icon-btn:hover { background: rgba(255,255,255,0.3); }
+        .badge { position: absolute; top: -5px; right: -5px; background: white; color: var(--red); font-size: 0.7rem; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .lang-selector { position: relative; }
+        .lang-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; }
+        .lang-dropdown { position: absolute; top: 100%; right: 0; background: white; border-radius: 8px; box-shadow: var(--shadow); min-width: 120px; overflow: hidden; display: none; z-index: 10; }
+        .lang-dropdown.active { display: block; }
+        .lang-option { padding: 0.75rem 1rem; cursor: pointer; color: var(--dark); }
+        .lang-option:hover { background: var(--red-light); color: var(--red); }
+        .lang-option.active { background: var(--red); color: white; }
+        .main-container { flex: 1; max-width: 1200px; margin: 1rem auto; padding: 0 1rem; display: grid; grid-template-columns: 250px 1fr 300px; gap: 1rem; }
+        .sidebar, .right-sidebar { background: var(--white); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); height: fit-content; position: sticky; top: 80px; }
+        .nav-menu a { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; color: var(--dark); text-decoration: none; }
+        .nav-menu a:hover, .nav-menu a.active { background: var(--red-light); color: var(--red); }
+        .feed { display: flex; flex-direction: column; gap: 1rem; }
+        .create-post, .post-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+        .post-header { padding: 1rem; display: flex; align-items: center; gap: 0.75rem; }
+        .post-info h4 { font-size: 1rem; }
+        .post-content { padding: 0 1rem 1rem; }
+        .post-category { display: inline-block; background: var(--red); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; }
+        .post-actions-bar { display: flex; justify-content: space-between; padding: 0.75rem 1rem; border-top: 1px solid #eee; background: var(--gray); }
+        .action-btn { display: flex; align-items: center; gap: 0.5rem; color: #555; cursor: pointer; }
+        .action-btn:hover { color: var(--red); }
+        .gps-btn { background: #27ae60; color: white; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .ad-container { height: 120px; background: #f0f0f0; border-top: 1px solid #ddd; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border-radius: 0 0 var(--radius) var(--radius); }
+        .ad-slide { position: absolute; width: 100%; height: 100%; opacity: 0; transition: opacity 0.5s ease; display: flex; align-items: center; justify-content: center; }
+        .ad-slide.active { opacity: 1; z-index: 1; }
+        .ad-slide img, .ad-slide video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+        .ad-timer, .ad-price-tag, .ad-views-counter { position: absolute; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; }
+        .ad-timer { top: 5px; right: 10px; background: rgba(0,0,0,0.5); color: white; }
+        .ad-price-tag { bottom: 5px; left: 10px; background: var(--red); color: white; }
+        .ad-views-counter { bottom: 5px; right: 10px; background: #27ae60; color: white; }
+        footer { background: var(--dark); color: white; text-align: center; padding: 1rem; font-size: 0.9rem; }
+        .offline-indicator { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: #e74c3c; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; z-index: 9999; display: none; }
+        .offline-indicator.show { display: block; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; padding: 1rem; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--white); border-radius: var(--radius); width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { color: var(--red); font-size: 1.5rem; }
+        .close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; }
+        .modal-body { padding: 1.5rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: var(--transition); }
+        .btn-primary { background: var(--red); color: white; }
+        .btn-primary:hover { background: var(--red-dark); }
+        .no-results { text-align: center; color: #999; font-style: italic; padding: 2rem; }
+        /* CHAT STYLES */
+        .chat-messages { max-height: 400px; overflow-y: auto; margin-bottom: 1rem; padding: 0.5rem; }
+        .chat-message { padding: 0.75rem; border-radius: 12px; margin-bottom: 0.75rem; max-width: 80%; position: relative; }
+        .chat-message.sent { background: var(--red); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+        .chat-message.received { background: #eee; color: var(--dark); margin-right: auto; border-bottom-left-radius: 4px; }
+        .chat-message .author { font-size: 0.75rem; font-weight: bold; margin-bottom: 0.25rem; }
+        .chat-input { display: flex; gap: 0.5rem; }
+        .chat-input input { flex: 1; }
+        .chat-input button { width: 60px; }
+        @media (max-width: 992px) { .main-container { grid-template-columns: 1fr; } .sidebar, .right-sidebar { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="offline-indicator" id="offlineIndicator">Hors ligne – Mode local activé</div>
+
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <i class="fas fa-hands-helping"></i>
+                    <span data-t="title">HELPNET</span>
+                    <span class="mg">+Madagascar</span>
+                </div>
+                <span class="genz">GenZ en Action</span>
+            </div>
+            <div class="search-bar">
+                <span class="z-icon">Z</span>
+                <input type="text" id="searchInput" data-t-placeholder="search" placeholder="Rechercher..." />
+                <i class="fas fa-search search-icon" onclick="performSearch()"></i>
+            </div>
+            <div class="header-actions">
+                <div class="icon-btn" onclick="openModal('notificationsModal')"><i class="fas fa-bell"></i><span class="badge">3</span></div>
+                <div class="icon-btn" onclick="openChatModal()"><i class="fas fa-comment"></i><span class="badge">5</span></div>
+                <div class="icon-btn" onclick="openModal('signupModal')"><i class="fas fa-user-plus"></i></div>
+                <div class="lang-selector">
+                    <button class="lang-btn" onclick="toggleLangDropdown()"><i class="fas fa-globe"></i><span id="current-lang">FR</span></button>
+                    <div class="lang-dropdown" id="lang-dropdown">
+                        <div class="lang-option active" data-lang="fr" onclick="changeLanguage('fr')">Français</div>
+                        <div class="lang-option" data-lang="mg" onclick="changeLanguage('mg')">Malagasy</div>
+                        <div class="lang-option" data-lang="en" onclick="changeLanguage('en')">English</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <div class="main-container">
+        <aside class="sidebar">
+            <h3 data-t="menu">Menu</h3>
+            <ul class="nav-menu">
+                <li><a href="#" class="active" data-t="home">Accueil</a></li>
+                <li><a href="#" onclick="openModal('createPostModal')" data-t="publish">Publier</a></li>
+                <li><a href="#" data-t="health">Santé</a></li>
+                <li><a href="#" data-t="food">Nourriture</a></li>
+                <li><a href="#" data-t="housing">Logement</a></li>
+                <li><a href="#" data-t="support">Soutien moral</a></li>
+                <li><a href="#" data-t="services">Services</a></li>
+                <li><a href="#" data-t="donations">Dons</a></li>
+                <li><a href="#" data-t="marketplace">Marketplace</a></li>
+            </ul>
+        </aside>
+
+        <main class="feed" id="feed">
+            <div class="create-post">
+                <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;">
+                    <div style="width:45px;height:45px;border-radius:50%;background:var(--red);color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;">Z</div>
+                    <textarea id="quickPost" data-t-placeholder="need_help" placeholder="J'ai besoin d'aide..." style="flex:1;padding:0.75rem 1rem;border:1px solid #ddd;border-radius:25px;resize:none;min-height:50px;"></textarea>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;">
+                    <div class="post-action" onclick="openModal('createPostModal');setPostType('need')"><i class="fas fa-hands-helping" style="color:#e74c3c"></i><span data-t="need">Besoin</span></div>
+                    <div class="post-action" onclick="openModal('createPostModal');setPostType('offer')"><i class="fas fa-handshake" style="color:#27ae60"></i><span data-t="offer">Offre</span></div>
+                    <div class="post-action" onclick="openModal('createPostModal');setPostType('sell')"><i class="fas fa-store" style="color:#f39c12"></i><span data-t="sell">Vendre</span></div>
+                </div>
+            </div>
+
+            <!-- Exemple de post -->
+            <div class="post-card" data-lat="-18.8792" data-lng="47.5078" data-category="health" data-author="Marie Dupont">
+                <div class="post-header">
+                    <img src="https://i.pravatar.cc/150?img=5" alt="Marie" />
+                    <div class="post-info">
+                        <h4>Marie Dupont</h4>
+                        <p data-t="time_ago">Il y a 10 min</p>
+                        <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:#27ae60;">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Antananarivo</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="post-content">
+                    <span class="post-category" data-t="health">Santé</span>
+                    <p>Consultations gratuites tous les samedis matin. Contactez-moi !</p>
+                    <button class="gps-btn" onclick="showGPSMap(-18.8792, 47.5078, 'Marie Dupont')">
+                        <i class="fas fa-location-arrow"></i> Voir sur la carte
+                    </button>
+                </div>
+                <div class="post-actions-bar">
+                    <div class="action-btn" onclick="likePost(this)"><i class="far fa-thumbs-up"></i> <span>12</span></div>
+                    <div class="action-btn" onclick="replyToPost('Marie Dupont')"><i class="far fa-comment"></i> <span data-t="reply">Répondre</span></div>
+                    <div class="action-btn" onclick="sharePost(this)"><i class="fas fa-share"></i> <span data-t="share">Partager</span></div>
+                </div>
+                <div class="ad-container" id="adContainer"></div>
+            </div>
+        </main>
+
+        <aside class="right-sidebar">
+            <div class="widget">
+                <h3 data-t="events">Événements</h3>
+                <p><strong data-t="food_drive">Collecte alimentaire</strong><br><span data-t="event_date">Samedi 15 nov, 9h-12h</span></p>
+            </div>
+        </aside>
+    </div>
+
+    <footer>
+        <p>© 2025 HELPNET +Madagascar - GenZ en Action</p>
+        <p style="font-style:italic;opacity:0.9;">
+            Créateur : <strong>Prince MANANTENASOA Dauphin Gelase Michelot, ZafindRATSIMILAHO</strong><br>
+            <em>Mise à jour : 11-11-2025 15:57 EAT</em>
+        </p>
+    </footer>
+
+    <!-- MODAL MESSAGERIE EN TEMPS RÉEL -->
+    <div class="modal" id="messagesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-t="messages">Messages</h2>
+                <button class="close-modal" onclick="closeModal('messagesModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="chat-messages" id="chatMessages"></div>
+                <form class="chat-input" onsubmit="sendMessage(event)">
+                    <input type="text" id="chatInput" placeholder="Tapez votre message..." autocomplete="off" required />
+                    <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Autres modals -->
+    <div class="modal" id="signupModal">...</div>
+    <div class="modal" id="createPostModal">...</div>
+    <div class="modal" id="notificationsModal">...</div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script>
+        // === VARIABLES GLOBALES ===
+        const translations = { /* ... même que précédemment ... */ };
+        let currentLang = localStorage.getItem('lang') || 'fr';
+        let socket;
+        let currentUser = "ZafindRATSIMILAHO"; // À remplacer par login
+
+        // === INITIALISATION ===
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAds();
+            changeLanguage(currentLang);
+            initAdCarousel();
+            initSearch();
+            initSocket();
+        });
+
+        // === SOCKET.IO - MESSAGERIE EN TEMPS RÉEL ===
+        function initSocket() {
+            socket = io('http://localhost:3000'); // Changez pour votre serveur
+
+            socket.on('connect', () => {
+                console.log('Connecté au serveur de chat');
+            });
+
+            socket.on('chat message', (data) => {
+                addMessage(data.author, data.message, data.author === currentUser ? 'sent' : 'received');
+            });
+
+            socket.on('disconnect', () => {
+                Toastify({text: "Déconnecté du chat", backgroundColor: "#e74c3c"}).showToast();
+            });
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            socket.emit('chat message', { author: currentUser, message });
+            input.value = '';
+        }
+
+        function addMessage(author, message, type) {
+            const messages = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = `chat-message ${type}`;
+            div.innerHTML = `<div class="author">${author}</div><div>${message}</div>`;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function openChatModal() {
+            openModal('messagesModal');
+            addMessage("Système", "Chat en direct activé !", "received");
+        }
+
+        function replyToPost(author) {
+            openChatModal();
+            document.getElementById('chatInput').value = `@${author} `;
+            document.getElementById('chatInput').focus();
+            Toastify({text: `Réponse à ${author}`, backgroundColor: "#27ae60"}).showToast();
+        }
+
+        // === AUTRES FONCTIONS (recherche, partage, etc.) ===
+        function performSearch() { /* ... même que précédemment ... */ }
+        function sharePost(btn) { /* ... même que précédemment ... */ }
+        // ... (autres fonctions inchangées)
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('SW OK:', reg.scope))
+                    .catch(err => console.error('SW erreur:', err));
+            });
+        }
+    </script>
+</body>
+</html>
